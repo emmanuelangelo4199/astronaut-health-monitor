@@ -275,3 +275,60 @@ class GroundSupportNoStaticCautionCardTests(TestCase):
             self.assertNotIn(text, html, text)
         self.assertIn('Recent Signals', html)
         self.assertIn('Cabin CO2 steady', html)  # the CO2 card is left as it was
+
+
+class AlertDetailNoFakeValuesTests(TestCase):
+    """No invented packet id, action time or crew name on the alert detail page; base.html reading errors."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command('seed_demo', verbosity=0)
+        cls.astro = AstronautProfile.objects.get(email='amara.reyes@mission.example')
+
+    def setUp(self):
+        resp = self.client.post(reverse('core:login'), {
+            'email': 'amara.reyes@mission.example',
+            'password': 'validAccess2026',
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.alert = Alert.objects.filter(astronaut=self.astro, acknowledged=False).first()
+        self.assertIsNotNone(self.alert)
+
+    def _html(self):
+        return self.client.get(reverse('alerts:detail', args=[self.alert.id])).content.decode()
+
+    def test_fake_static_values_absent(self):
+        html = self._html()
+        for text in ('MED-8812', '08:12 UTC', 'Cabin lighting dimmed', 'Protocol auto-engaged',
+                     'Cmdr. Reyes', 'Signal Queued'):
+            self.assertNotIn(text, html, text)
+
+    def test_action_status_uses_real_alert_data(self):
+        html = self._html()
+        self.assertIn('Raised %s UTC' % self.alert.timestamp.strftime('%H:%M'), html)
+        self.assertIn('Alert #%d' % self.alert.id, html)
+        self.assertIn('Simulated, nothing is sent', html)
+        self.assertIn('No action logged', html)
+        self.assertNotIn('has been acknowledged', html)
+
+    def test_bio_sensor_card_is_labelled_simulated(self):
+        html = self._html()
+        start = html.index('Bio-Sensor ID')
+        end = html.index('Confidence Value', start)
+        card = html[start:end]
+        self.assertIn('(simulated)', card)
+        self.assertIn('POLARIS-BIO-04', card)
+
+    def test_acknowledged_alert_says_so(self):
+        Alert.objects.filter(pk=self.alert.pk).update(acknowledged=True)
+        html = self._html()
+        self.assertIn('This alert has been acknowledged.', html)
+        self.assertNotIn('Nothing has been done on this alert yet', html)
+
+    def test_reading_modal_error_region_is_accessible_and_handler_surfaces_server_error(self):
+        html = self.client.get(reverse('core:dashboard')).content.decode()
+        self.assertIn('id="reading-error" role="alert" hidden', html)
+        self.assertIn("Couldn't save this reading.", html)
+        self.assertIn('data.error', html)            # server message is used when present
+        self.assertIn('await response.json()', html)  # parsed inside try/catch
+        self.assertNotIn('<span>Error</span>', html)  # no more flash-and-reset

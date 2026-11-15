@@ -462,6 +462,12 @@
           </div>
         </div>
 
+        <div id="reading-error" role="alert" hidden
+             class="mt-space-md flex items-start gap-space-sm rounded-xl border border-error/40 border-l-4 border-l-error bg-surface-container-high p-space-sm">
+          <span aria-hidden="true" class="material-symbols-outlined text-[20px] text-error shrink-0">error</span>
+          <p id="reading-error-text" class="flex-1 font-body-sm text-body-sm text-on-surface"></p>
+        </div>
+
         <div class="flex items-center justify-end gap-space-sm pt-space-md">
           <button type="button"
                   class="h-11 px-space-lg rounded-xl text-on-surface-variant hover:text-on-surface hover:bg-surface-container font-headline-sm text-headline-sm transition-colors"
@@ -520,11 +526,42 @@
       inp.value = (sel === 'sleep' || sel === 'body_temp') ? val.toFixed(1) : Math.round(val);
     }
 
+    const READING_ERROR_FALLBACK = "Couldn't save this reading.";
+
+    function showReadingError(message) {
+      const box = document.getElementById('reading-error');
+      const text = document.getElementById('reading-error-text');
+      if (!box || !text) return;
+      text.textContent = message || READING_ERROR_FALLBACK;
+      box.hidden = false;
+    }
+
+    function clearReadingError() {
+      const box = document.getElementById('reading-error');
+      const text = document.getElementById('reading-error-text');
+      if (box) box.hidden = true;
+      if (text) text.textContent = '';
+    }
+
+    // Reads the server's { "error": "..." } safely; HTML error pages or empty bodies give the generic message.
+    async function readErrorMessage(response) {
+      try {
+        const data = await response.json();
+        if (data && typeof data.error === 'string' && data.error.trim()) {
+          return data.error.trim();
+        }
+      } catch (parseErr) {
+        // not JSON (e.g. an HTML 403/500 page): fall through to the generic message
+      }
+      return READING_ERROR_FALLBACK;
+    }
+
     async function handleManualReadingSubmit(e) {
       e.preventDefault();
       const form = e.target;
       const btn = document.getElementById('save-reading-btn');
       const origHtml = btn.innerHTML;
+      clearReadingError();
       btn.innerHTML = '<span class="material-symbols-outlined animate-spin text-[18px]">sync</span> <span>Syncing...</span>';
 
       try {
@@ -546,8 +583,9 @@
             window.location.reload();
           }, 500);
         } else {
-          btn.innerHTML = '<span class="material-symbols-outlined text-[18px]">error</span> <span>Error</span>';
-          setTimeout(() => { btn.innerHTML = origHtml; }, 1200);
+          // Keep the modal and the typed value; say why it failed and let the user retry or cancel.
+          btn.innerHTML = origHtml;
+          showReadingError(await readErrorMessage(response));
         }
       } catch (err) {
         console.error('Reading ingest error:', err);

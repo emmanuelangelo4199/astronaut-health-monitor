@@ -240,13 +240,13 @@
             </div>
             <div class="flex-1">
               <div class="flex items-center gap-space-xs">
-                <span class="px-space-xs py-0.5 rounded bg-surface-container text-primary-fixed font-label-caps text-label-caps uppercase">
-                  Action logged
+                <span class="px-space-xs py-0.5 rounded bg-surface-container text-primary-fixed font-label-caps text-label-caps uppercase" id="action-badge-text">
+                  {% if alert.acknowledged %}Acknowledged{% else %}No action logged{% endif %}
                 </span>
-                <span class="font-label-sm text-label-sm text-on-surface-variant">08:12 UTC</span>
+                <span class="font-label-sm text-label-sm text-on-surface-variant">Raised {{ alert.timestamp|date:'H:i' }} UTC</span>
               </div>
               <p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5" id="banner-text">
-                Cabin lighting dimmed · Protocol auto-engaged
+                {% if alert.acknowledged %}This alert has been acknowledged.{% else %}Nothing has been done on this alert yet. Work through the steps above.{% endif %}
               </p>
             </div>
           </div>
@@ -271,7 +271,7 @@
         <!-- Diagnostic Footnote Telemetry Details -->
         <div class="p-space-md rounded-xl bg-surface-container-low/60 flex flex-col gap-space-xs text-on-surface-variant border border-white/5">
           <div class="flex items-center justify-between font-label-caps text-label-caps uppercase text-outline">
-            <span>Bio-Sensor ID</span>
+            <span>Bio-Sensor ID <span class="normal-case text-[#FFB020]" data-simulated-tag>(simulated)</span></span>
             <span>POLARIS-BIO-04</span>
           </div>
           <div class="flex items-center justify-between font-body-sm text-body-sm">
@@ -316,13 +316,13 @@
     </div>
 
     <!-- Escalation Toast / Notice -->
-    <div class="fixed bottom-6 right-6 z-50 rounded-xl bg-surface-container-highest p-space-md shadow-2xl hidden items-center gap-space-md border border-primary/30" id="escalation-toast">
+    <div class="fixed bottom-6 right-6 z-50 rounded-xl bg-surface-container-highest p-space-md shadow-2xl hidden items-center gap-space-md border border-primary/30" id="escalation-toast" role="status" aria-live="polite">
       <div class="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center text-primary-container">
         <span class="material-symbols-outlined text-[20px]">podcasts</span>
       </div>
       <div>
-        <div class="font-headline-sm text-headline-sm text-on-surface">Ground Support Signal Queued</div>
-        <div class="font-body-sm text-body-sm text-on-surface-variant">Uplink latency: {{ comm_latency }} one way (NASA range) · Packet ID #MED-8812</div>
+        <div class="font-headline-sm text-headline-sm text-on-surface">Ground Support Signal (simulated)</div>
+        <div class="font-body-sm text-body-sm text-on-surface-variant">Uplink latency: {{ comm_latency }} one way (NASA range) · Alert #{{ alert.id }} · Simulated, nothing is sent</div>
       </div>
       <button class="text-on-surface-variant hover:text-on-surface p-1 cursor-pointer" onclick="hideEscalationToast()" type="button">
         <span class="material-symbols-outlined text-[18px]">close</span>
@@ -567,7 +567,11 @@
 
     const bannerText = document.getElementById('banner-text');
     if (bannerText) {
-      bannerText.textContent = "Action status verified & logged by Cmdr. Reyes";
+      bannerText.textContent = "Marked done on this screen only. Nothing is saved.";
+    }
+    const badgeText = document.getElementById('action-badge-text');
+    if (badgeText) {
+      badgeText.textContent = "Marked done (not saved)";
     }
     const banner = document.getElementById('notification-banner');
     if (banner) {
